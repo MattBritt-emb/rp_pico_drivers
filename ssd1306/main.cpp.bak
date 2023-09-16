@@ -1,0 +1,404 @@
+#include <pico/stdlib.h>
+#include <hardware/spi.h>
+#include <pico/time.h>
+
+#include <functional>
+
+const int RESET_PIN = 9;
+const int SCK_PIN = 10;
+const int SDI_PIN = 11;
+const int CS_PIN = 13;
+const int DC_PIN = 15;
+const int BAUD = 100'000;
+
+void writeCmd(const uint8_t cmd)
+{
+
+    gpio_put(DC_PIN, 0);
+    gpio_put(CS_PIN, 0);
+    spi_write_blocking(spi1, &cmd, sizeof(cmd));
+    gpio_put(CS_PIN, 1);
+    // Don't care about DC_PIN until there's data
+}
+
+void writeData(const uint8_t* pData, const size_t size)
+{
+    gpio_put(DC_PIN, 1);
+    gpio_put(CS_PIN, 0);
+
+    spi_write_blocking(spi1, pData, size);
+
+    gpio_put(CS_PIN, 1);
+    // Don't care about DC_PIN until there's a cmd
+}
+
+void initDisplay()
+{
+// TODO: reset ssd1306 before configuring
+
+    writeCmd(0xAE); // display off
+    
+    writeCmd(0x20); // set mem addr to 0
+    writeCmd(0x00);
+
+    writeCmd(0x40); // set start line
+
+    writeCmd(0xA1); // seg remap?
+
+    writeCmd(0xA8); // set mux ratio (height?)
+    writeCmd(64 - 1);
+
+    writeCmd(0xC0 | 0x8); // Set COM dir?
+
+    writeCmd(0xD3); // Set display offset
+    writeCmd(0x00);
+
+    writeCmd(0xDA); // set COM pin cfg?
+    writeCmd(0x12);
+
+    writeCmd(0xD5); // set display clock div
+    writeCmd(0x80);
+
+    writeCmd(0xD9); // set precharge
+    writeCmd(0xF1);
+
+    writeCmd(0xDB); // set vcom dsel ?
+    writeCmd(0x30);
+
+    writeCmd(0x81); // set contrast
+    writeCmd(0xFF);
+
+    writeCmd(0xA4); // Set all pixels on
+
+    writeCmd(0xA6);  // Normal (no) invert
+
+    writeCmd(0x8D); // set charge pump
+    writeCmd(0x14);
+
+    writeCmd(0xAF); // display on
+
+}
+
+
+class SSD1306
+{
+    const uint8_t SET_CONTRAST = 0x81;
+    const uint8_t SET_DISP_OFF = 0xAE;
+    const uint8_t SET_DISP_ON = 0xAF;
+    const uint8_t SET_SCREEN_ON = 0xA4;
+    const uint8_t SET_INV = 0xA6;
+
+    /// Set memory address mode, two byte (horizontal == 0, vertical == 1, page == 2)
+    const uint8_t SET_MEM_ADDR_MODE = 0x20;
+    /// Set column start and end addr, three byte
+    const uint8_t SET_COL_ADDR = 0x21;
+
+    const uint8_t SET_MUX_RATIO = 0xA8;
+
+    const uint8_t SET_DISPLAY_OFFSET = 0xD3;
+    const uint8_t SET_DISPLAY_START_LINE = 0x40;
+
+    const uint8_t SET_SEGMENT_REMAP = 0xA0;
+    const uint8_t SET_COM_OUT_DIR = 0xC0;
+    const uint8_t SET_COM_PIN_HW = 0xDA;
+
+    const uint8_t SET_OSC_FREQ = 0xD5;
+
+    const uint8_t SET_PRE_CHARGE_PERIOD = 0xD9;
+    const uint8_t ENABLE_PRE_CHARGE_PUMP = 0x8D;
+
+    const uint8_t SET_VCOM_DESELECT = 0xDB;
+
+public:
+    SSD1306
+    (
+        std::function<void(const uint8_t)> writeCmdFunc, 
+        std::function<void(const uint8_t*, const size_t)> writeDataFunc, 
+        const size_t width, 
+        const size_t height
+    )
+    :   mWriteCmd(writeCmdFunc), 
+        mWriteData(writeDataFunc),
+        mWidth(width),
+        mHeight(height)
+    {
+        initScreen();
+    }
+
+    void displayOff()
+    {
+        mWriteCmd(SET_DISP_OFF);
+    }
+
+    void displayOn()
+    {
+        mWriteCmd(SET_DISP_ON);
+    }
+
+    void displayRam()
+    {
+        mWriteCmd(SET_SCREEN_ON);
+    }
+
+    void invertDisplay(const bool isInverted)
+    {
+        uint8_t mask = 0b1;
+        mWriteCmd(SET_INV | mask);
+    }
+
+    void setMuxRatio(const uint8_t muxRatio)
+    {
+        mWriteCmd(SET_MUX_RATIO);
+        mWriteCmd(muxRatio);
+    }
+
+    void setDisplayOffset(const uint8_t offset)
+    {
+        mWriteCmd(SET_DISPLAY_OFFSET);
+        mWriteCmd(offset);
+    }
+
+    void setDisplayStartLine(const uint8_t line)
+    {
+        mWriteCmd(SET_DISPLAY_START_LINE | line);
+    }
+
+    /**
+     * @brief Set Segment Remap 
+     * 
+     * @param isReversed - If true then column 127 is mapped to SEG0 
+     */
+    void setSegmentRemap(bool isReversed)
+    {
+        uint8_t mask = isReversed ? 1 : 0;
+        mWriteCmd(SET_SEGMENT_REMAP | mask);
+    }
+
+    void setComOutDir(const bool isReversed)
+    {
+        uint8_t mask = isReversed ? 0b1000 : 0;
+        mWriteCmd(SET_COM_OUT_DIR | mask);
+    }
+
+    void setComPinsHwConfig(const bool isAlternative, const bool isRemapEnabled)
+    {
+        uint8_t mask = isAlternative ? 0b01'0000 : 0;
+        mask |= isRemapEnabled ? 0b10'0000 : 0;
+        mWriteCmd(SET_COM_PIN_HW);
+        mWriteCmd(mask | 0x02);
+    }
+
+    void setContrast(const uint8_t contrast)
+    {
+        mWriteCmd(SET_CONTRAST);
+        mWriteCmd(contrast);
+    }
+
+    void setOsc(const uint8_t freq, const uint8_t divRatio)
+    {
+        mWriteCmd(SET_OSC_FREQ);
+        mWriteCmd((freq << 4) | divRatio);
+    }
+
+    void setPreChargePeriod(const uint8_t phase1Period, const uint8_t phase2Period)
+    {
+        mWriteCmd(SET_PRE_CHARGE_PERIOD);
+        mWriteCmd((phase1Period << 4) | phase2Period);
+    }
+
+    void enableChargePump(const bool isEnabled)
+    {
+        uint8_t mask = isEnabled ? 0b100 : 0;
+        mWriteCmd(ENABLE_PRE_CHARGE_PUMP);
+        mWriteCmd(0b1'0000 | mask);
+    }
+
+    void writeData(const uint8_t* pData, size_t size)
+    {
+        mWriteData(pData, size);
+    }
+
+    void resetDisplay()
+    {
+        gpio_put(RESET_PIN, 0);
+        sleep_ms(1);
+        gpio_put(RESET_PIN, 1);
+    }
+
+    void setMemAddrMode(const uint8_t mode)
+    {
+        mWriteCmd(SET_MEM_ADDR_MODE);
+        mWriteCmd(mode);
+    }
+
+    void setVcomDeselect(const uint8_t level)
+    {
+        mWriteCmd(SET_VCOM_DESELECT);
+        mWriteCmd(level << 4);
+    }
+
+protected:
+
+    void initScreen()
+    {
+        displayOff();
+        resetDisplay();
+
+// initDisplay();
+        setMemAddrMode(0);
+        setDisplayStartLine(0);
+
+    // TODO: check this
+        setSegmentRemap(true);
+        
+        setMuxRatio(0x3F);
+        setComOutDir(true);
+
+        setDisplayOffset(0);
+        
+        
+        setComPinsHwConfig(true, false);
+        setOsc(0x8, 0);
+
+        setPreChargePeriod(0xF, 0x1);
+
+        setVcomDeselect(0x3);
+
+        setContrast(0xFF);
+        displayRam();
+        // invertDisplay(false);
+        // 
+        enableChargePump(true);
+        displayOn();
+    }
+
+    // void initScreen()
+    // {
+        // writeCmd(0xAE); // display off
+        
+        // writeCmd(0x20); // set mem addr to 0
+        // writeCmd(0x00);
+
+        // writeCmd(0x40); // set start line
+
+        // writeCmd(0xA1); // seg remap?
+
+        // writeCmd(0xA8); // set mux ratio (height?)
+        // writeCmd(64 - 1);
+
+        // writeCmd(0xC0 | 0x8); // Set COM dir?
+
+        // writeCmd(0xD3); // Set display offset
+        // writeCmd(0x00);
+
+        // writeCmd(0xDA); // set COM pin cfg?
+        // writeCmd(0x12);
+
+        // writeCmd(0xD5); // set display clock div
+        // writeCmd(0x80);
+
+        // writeCmd(0xD9); // set precharge
+        // writeCmd(0xF1);
+
+        // writeCmd(0xDB); // set vcom dsel ?
+        // writeCmd(0x30);
+
+        // writeCmd(0x81); // set contrast
+        // writeCmd(0xFF);
+
+        // writeCmd(0xA4); // Set all pixels on
+
+        // writeCmd(0xA6);  // Normal (no) invert
+
+        // writeCmd(0x8D); // set charge pump
+        // writeCmd(0x14);
+
+        // writeCmd(0xAF); // display on
+    // }
+
+    // void writeCmd(const uint8_t cmd);
+    std::function<void(const uint8_t)> mWriteCmd;
+    // void writeData(const uint8_t* pData, const size_t size);
+    std::function<void(const uint8_t*, const size_t)> mWriteData;
+
+    size_t mWidth;
+    size_t mHeight;
+    
+
+};
+
+int main()
+{
+    stdio_init_all();
+
+    gpio_init(RESET_PIN);
+    gpio_set_dir(RESET_PIN, GPIO_OUT);
+    gpio_put(RESET_PIN, 1);
+
+    gpio_init(DC_PIN);
+    gpio_set_dir(DC_PIN, GPIO_OUT);
+    gpio_put(DC_PIN, 0);
+
+    gpio_init(CS_PIN);
+    gpio_set_dir(CS_PIN, GPIO_OUT);
+    gpio_put(CS_PIN, 1);
+
+    spi_init(spi1, BAUD);
+    spi_set_format(spi1, 8, SPI_CPOL_0 , SPI_CPHA_0, SPI_MSB_FIRST);
+    // gpio_set_function(CS_PIN, GPIO_FUNC_SPI);
+    gpio_set_function(SDI_PIN, GPIO_FUNC_SPI);
+    gpio_set_function(SCK_PIN, GPIO_FUNC_SPI);
+
+    // sleep_ms(1000);
+    // const uint8_t DISPLAY_ON = 0xAF;
+
+    // spi_write_blocking(spi1, &DISPLAY_ON, sizeof(DISPLAY_ON));
+
+
+    // // while(true)
+    // {
+    //     const uint8_t ENTIRE_DISPLAY_ON = 0xA5;
+    //     spi_write_blocking(spi1, &ENTIRE_DISPLAY_ON, sizeof(ENTIRE_DISPLAY_ON));
+    //     sleep_ms(1000);
+    // }
+
+    // initDisplay();
+    SSD1306 oled(&writeCmd, &writeData, 128, 64);
+
+    const size_t BUF_SIZE = 128 * 64;
+    uint8_t buf[BUF_SIZE] = {0};
+    for(size_t i = 0; i < BUF_SIZE; i++)
+    {
+        
+        if(i % 7 == 0)
+        {
+            buf[i] = 0xFF;
+        }
+        else
+        {
+            buf[i] = 0x00;
+        }
+    }
+
+    oled.writeData(buf, BUF_SIZE);
+
+    while(true)
+    {
+        
+        
+        // // Set col
+        // writeCmd(0x21);
+        // writeCmd(32);
+        // writeCmd(128 - 1);
+
+        // // Set page
+        // writeCmd(0x22);
+        // writeCmd(0);
+        // writeCmd(64 / 8);
+
+        // // Write data
+        // writeData(buf, BUF_SIZE);
+        
+        // sleep_ms(1000);
+    }
+}
