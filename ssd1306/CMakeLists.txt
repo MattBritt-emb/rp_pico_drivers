@@ -12,8 +12,6 @@ if (PICO_SDK_VERSION_STRING VERSION_LESS "1.3.0")
     message(FATAL_ERROR "Raspberry Pi Pico SDK version 1.3.0 (or later) required. Your version is ${PICO_SDK_VERSION_STRING}")
 endif()
 
-# set(PICO_EXAMPLES_PATH ${PROJECT_SOURCE_DIR})
-
 # Initialize the SDK
 pico_sdk_init()
 
@@ -27,13 +25,15 @@ endif()
 
 set( SOURCES
         main.cpp
-        SSD1306.cpp)
+        framebuffer.cpp
+        ssd1306.cpp)
 
 set( HEADERS
-        SSD1306.hpp)
+        font.hpp
+        framebuffer.hpp
+        ssd1306.hpp)
 
 add_executable(${PROJECT_NAME} ${SOURCES} ${HEADERS})
 
 target_link_libraries(${PROJECT_NAME} pico_stdlib hardware_spi)
 pico_add_extra_outputs(${PROJECT_NAME})
-# example_auto_set_url(oled)

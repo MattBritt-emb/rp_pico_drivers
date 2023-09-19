@@ -2,7 +2,9 @@
 #include <hardware/spi.h>
 #include <pico/time.h>
 
-#include "SSD1306.hpp"
+#include "font.hpp"
+#include "framebuffer.hpp"
+#include "ssd1306.hpp"
 
 const int RESET_PIN = 9;
 const int DC_PIN = 15;
@@ -74,25 +76,43 @@ void initialize()
 }
 
 int main()
-{
+
+    {
     // Setup GPIO & SPI
     initialize();
 
     // Create object that uses write, setPin, delayMs functions defined above
     SSD1306 oled(&write, &setPin, &delayMs, DC_PIN, RESET_PIN, WIDTH, HEIGHT);
 
-    // Put 'F' in lower left corner
-    const size_t BUF_SIZE = HEIGHT * WIDTH / 8;
-    uint8_t buf[BUF_SIZE] = {0};
+    Framebuffer fb(128, 64);
+    fb.setFont(&font);
+    
+    for(int y = 63; y >= 47; y--)
+    {
+        fb.setPixel(0, y, true);
+    }
 
-    buf[0] =    0b0000'0000;
-    buf[8] =    0b0111'1110;
-    buf[16] =   0b0101'0000;
-    buf[24] =   0b0101'0000;
-    buf[32] =   0b0101'0000;
-    buf[40] =   0b0000'0000;
+    fb.setChar('A', 0,0);
+    fb.setChar('B', 8, 0);
+    fb.setChar('A', 16, 0);
 
-    oled.writeData(buf, BUF_SIZE);
+    char text[] = "0123456789";
+    fb.setText(10,10, text, sizeof(text) - 1);
+
+    oled.writeData(fb.getBuffer(), 128 * 64 / 8);
+
+    // // Put 'F' in lower left corner
+    // const size_t BUF_SIZE = HEIGHT * WIDTH / 8;
+    // uint8_t buf[BUF_SIZE] = {0};
+
+    // buf[0] =    0b0000'0000;
+    // buf[8] =    0b0111'1110;
+    // buf[16] =   0b0101'0000;
+    // buf[24] =   0b0101'0000;
+    // buf[32] =   0b0101'0000;
+    // buf[40] =   0b0000'0000;
+
+    // oled.writeData(buf, BUF_SIZE);
 
     return 0;
 }
