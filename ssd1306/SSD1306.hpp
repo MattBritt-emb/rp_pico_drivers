@@ -175,21 +175,42 @@ public:
      */
     void enableChargePump(const bool isEnabled);
 
+    /**
+     * @brief Write screen data to SSD1306 RAM
+     * 
+     * @param pData - pointer to data
+     * @param size - size of data
+     */
     void writeData(const uint8_t* pData, const size_t size);
 protected:
 
+    /**
+     * @brief Initialize SSD1306
+     */
     void init();
 
+    /**
+     * @brief 
+     * 
+     * @param cmd 
+     */
     void writeCmd(const uint8_t cmd);
 
+    /// Function object for writing to SSD1306
     std::function<void(const uint8_t*, const size_t)> mWrite;
+    /// Function object for setting a pin high/low
     std::function<void(const uint8_t pin, const bool)> mSetPin;
+    /// Function object for delaying a number of milliseconds
     std::function<void(const uint32_t)> mDelayMs;
 
+    /// Pin number of DC pin (Data/Command)
     const uint8_t mDcPin;
+    /// Pin number of reset pin
     const uint8_t mResetPin;
 
+    /// Screen width, pixels
     const size_t mWidth;
+    /// Screen height, pixels
     const size_t mHeight;
 
 }; // End class SSD1306

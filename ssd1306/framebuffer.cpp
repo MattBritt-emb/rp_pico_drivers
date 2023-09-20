@@ -1,6 +1,5 @@
 #include "framebuffer.hpp"
 
-
 Framebuffer::Framebuffer(const size_t width, const size_t height)
 :   mWidth(width),
     mHeight(height),
@@ -8,7 +7,6 @@ Framebuffer::Framebuffer(const size_t width, const size_t height)
     mBuf(width, std::vector<bool>(height, false)),
     mOutBuf(width * mHeightBytes, 0)
 {
-
 }
 
 bool Framebuffer::getPixel(const size_t x, const size_t y)
@@ -82,10 +80,9 @@ bool Framebuffer::setChar(const char c, const size_t x, const size_t y)
     
     size_t yPos = y;
 
-    // for(const std::vector<bool>& line : *pCharVec)
+    // Process letter lines in reverse to match screen RAM
     for(int i = pCharVec->size() - 1; i >= 0; i--)
     {
-
         const auto& line = pCharVec->at(i);
 
         if(yPos >= mHeight)
@@ -110,7 +107,7 @@ bool Framebuffer::setChar(const char c, const size_t x, const size_t y)
     }
 
     return true;
-}
+} // End setChar
 
 bool Framebuffer::setText
 (
@@ -122,8 +119,48 @@ bool Framebuffer::setText
 {
     for(size_t i = 0; i < size; i++)
     {
-        setChar(pText[i], x + (i * 8), y);
+        bool result = setChar(pText[i], x + (i * 8), y);
+        if(!result)
+        {
+            return false;
+        }
     }
 
     return true;
 }
+
+void Framebuffer::setRect
+(
+    const size_t x0, 
+    const size_t y0, 
+    const size_t x1, 
+    const size_t y1,
+    const bool val
+)
+{
+    for(size_t x = x0; x < x1; x++)
+    {
+        if(x >= mWidth)
+        {
+            // No more y pixels to write - bail
+            return;
+        }
+
+        for(size_t y = y0; y < y1; y++)
+        {
+            if(y >= mHeight)
+            {
+                // Out of y pixels for this x, but there
+                // may be more for other x
+                continue;
+            }
+
+            setPixel(x, y, val);
+        }
+    }
+}
+
+// void Framebuffer::clearScreen()
+// {
+//     clearRect(0, 0, mWidth, mHeight);
+// }

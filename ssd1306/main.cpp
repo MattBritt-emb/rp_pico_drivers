@@ -86,33 +86,33 @@ int main()
 
     Framebuffer fb(128, 64);
     fb.setFont(&font);
-    
-    for(int y = 63; y >= 47; y--)
+
+    // Scroll "Hello World!" up and down    
+    size_t y = 0;
+    int step = 1;
+
+    while(true)
     {
-        fb.setPixel(0, y, true);
+        if(y > 60)
+        { 
+            step = -1;  
+        }
+        else if(y == 0)
+        {
+            step = 1;
+        }
+
+        char text4[] = "HELLO WORLD!";
+        fb.clearScreen();
+        fb.setText(0,y,text4,sizeof(text4) - 1);
+        oled.writeData(fb.getBuffer(), fb.getBufSize());
+
+        sleep_ms(20);
+        y += step;
     }
 
-    fb.setChar('A', 0,0);
-    fb.setChar('B', 8, 0);
-    fb.setChar('A', 16, 0);
-
-    char text[] = "0123456789";
-    fb.setText(10,10, text, sizeof(text) - 1);
-
+    // Put framebuffer pixels on screen
     oled.writeData(fb.getBuffer(), 128 * 64 / 8);
-
-    // // Put 'F' in lower left corner
-    // const size_t BUF_SIZE = HEIGHT * WIDTH / 8;
-    // uint8_t buf[BUF_SIZE] = {0};
-
-    // buf[0] =    0b0000'0000;
-    // buf[8] =    0b0111'1110;
-    // buf[16] =   0b0101'0000;
-    // buf[24] =   0b0101'0000;
-    // buf[32] =   0b0101'0000;
-    // buf[40] =   0b0000'0000;
-
-    // oled.writeData(buf, BUF_SIZE);
 
     return 0;
 }
