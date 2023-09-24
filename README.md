@@ -20,3 +20,9 @@ This is a common OLED driver chip.
 I used this specific display (the Blue & Yellow): [UMLIFE 0.96" 7 Pin SPI 128x64 OLED Display](https://www.amazon.com/dp/B08SJY4RC4?ref=ppx_yo2ov_dt_b_product_details&th=1)
 
 Note: This is really a monochrome display with top ~20% showing up yellow and the rest blue.  The pictures on Amazon are *misleading* to say the least.
+
+## PwmPin
+
+This library sets PWM parameters for a given pin.
+ 
+Note: For RP2040 each PWM generator handles two pins. Changing the frequency will affect both pins.

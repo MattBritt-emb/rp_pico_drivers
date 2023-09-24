@@ -1,6 +1,10 @@
+#
+#       Example program using the PwmPin library.
+#
+     
 cmake_minimum_required(VERSION 3.12)
 
-project(ssd1306 C CXX ASM)
+project(pwmPin_example C CXX ASM)
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 17)
 
@@ -13,15 +17,14 @@ if (CMAKE_C_COMPILER_ID STREQUAL "GNU")
 endif()
 
 set( SOURCES
-        src/framebuffer.cpp
-        src/ssd1306.cpp)
+        main.cpp)
 
-set( HEADERS
-        include/font.hpp
-        include/framebuffer.hpp
-        include/ssd1306.hpp)
+set( HEADERS )
 
-add_library(${PROJECT_NAME} ${SOURCES} ${HEADERS})
+add_executable(${PROJECT_NAME} ${SOURCES} ${HEADERS})
 
-# Include headers
-target_include_directories(${PROJECT_NAME} PUBLIC include)
+target_link_libraries(${PROJECT_NAME} pwmPin)
+
+# Executables need this to produce UF2 files (that can be copied over 
+# USB with bootsel if you don't have a debugger)
+pico_add_extra_outputs(${PROJECT_NAME})

@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.12)
 
-project(ssd1306 C CXX ASM)
+project(pwmPin C CXX ASM)
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 17)
 
@@ -13,15 +13,17 @@ if (CMAKE_C_COMPILER_ID STREQUAL "GNU")
 endif()
 
 set( SOURCES
-        src/framebuffer.cpp
-        src/ssd1306.cpp)
+        src/pwmPin.cpp)
 
 set( HEADERS
-        include/font.hpp
-        include/framebuffer.hpp
-        include/ssd1306.hpp)
+        include/pwmPin.hpp)
 
 add_library(${PROJECT_NAME} ${SOURCES} ${HEADERS})
+
+target_link_libraries(${PROJECT_NAME} 
+                                pico_stdlib 
+                                hardware_gpio 
+                                hardware_pwm)
 
 # Include headers
 target_include_directories(${PROJECT_NAME} PUBLIC include)

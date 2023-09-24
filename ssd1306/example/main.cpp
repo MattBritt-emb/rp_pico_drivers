@@ -1,10 +1,14 @@
+/**
+ * @brief Simple example program using SSD1306 library. 
+ */
+
 #include <pico/stdlib.h>
 #include <hardware/spi.h>
 #include <pico/time.h>
 
-#include "font.hpp"
-#include "framebuffer.hpp"
-#include "ssd1306.hpp"
+#include <font.hpp>
+#include <framebuffer.hpp>
+#include <ssd1306.hpp>
 
 const int RESET_PIN = 9;
 const int DC_PIN = 15;
